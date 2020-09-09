@@ -24,7 +24,7 @@ public class ScreenShot : MonoBehaviour
         return string.Format("{0}/screenshots/screen_{1}x{2}_{3}.png",
             Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
             width, height,
-            System.DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss"));
+            System.DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss-ffff"));
     }
 
     public void TakeHiResShot()
@@ -38,8 +38,7 @@ public class ScreenShot : MonoBehaviour
     /// </summary>
     void Start()
     {
-
-        RotateAroundIt();
+        StartCoroutine(RotateAroundIt());
     }
 
     void LateUpdate()
@@ -48,7 +47,7 @@ public class ScreenShot : MonoBehaviour
 
     }
 
-    public void RotateAroundIt()
+    public IEnumerator RotateAroundIt()
     {
         for (int i = 0; i < maxGrade; i += offsetGrade)
         {
@@ -56,7 +55,7 @@ public class ScreenShot : MonoBehaviour
             {
                 for (int k = 0; k < maxGrade; k += offsetGrade)
                 {
-                    StartCoroutine(Shoot(new Vector3(i, j, k)));
+                    yield return Shoot(new Vector3(i, j, k));
                 }
             }
         }
@@ -65,7 +64,6 @@ public class ScreenShot : MonoBehaviour
 
     IEnumerator Shoot(Vector3 rotation)
     {
-        yield return new WaitForSeconds(0.4f);
         target.transform.rotation = Quaternion.Euler(rotation.x, rotation.y, rotation.z);
         RenderTexture rt = new RenderTexture(resWidth, resHeight, 24);
         camera.targetTexture = rt;
@@ -75,11 +73,19 @@ public class ScreenShot : MonoBehaviour
         screenShot.ReadPixels(new Rect(0, 0, resWidth, resHeight), 0, 0);
         camera.targetTexture = null;
         RenderTexture.active = null;
-        Destroy(rt);
+        DestroyImmediate(rt);
         byte[] bytes = screenShot.EncodeToPNG();
         string filename = ScreenShotName(resWidth, resHeight);
         System.IO.File.WriteAllBytes(filename, bytes);
         Debug.Log(string.Format("Took screenshot to: {0}", filename));
         takeHiResShot = false;
+        DestroyImmediate(screenShot);
+        yield return new WaitForSeconds(0.2f);
     }
+
+    // IEnumerator ShootByScreenshot(Vector3 rotation){
+    //     yield return new WaitForSeconds(0.4f);
+    //     target.transform.rotation = Quaternion.Euler(rotation.x, rotation.y, rotation.z);
+    //     ScreenCapture.CaptureScreenshot()
+    // }
 }
