@@ -15,6 +15,11 @@ public class ScreenShot : MonoBehaviour
     int offsetGrade = 30;
     int maxGrade = 350;
 
+    private BoundingBoxWriter writer;
+
+    [SerializeField]
+    private Renderer meshTarget;
+
     public static string ScreenShotName(int width, int height)
     {
         string path = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/";
@@ -38,7 +43,9 @@ public class ScreenShot : MonoBehaviour
     /// </summary>
     void Start()
     {
+        writer = new BoundingBoxWriter(camera);
         StartCoroutine(RotateAroundIt());
+
     }
 
     void LateUpdate()
@@ -78,6 +85,7 @@ public class ScreenShot : MonoBehaviour
         string filename = ScreenShotName(resWidth, resHeight);
         System.IO.File.WriteAllBytes(filename, bytes);
         Debug.Log(string.Format("Took screenshot to: {0}", filename));
+        writer.AddBoundingBox(filename, meshTarget.bounds.min, meshTarget.bounds.max);
         takeHiResShot = false;
         DestroyImmediate(screenShot);
         yield return new WaitForSeconds(0.2f);
