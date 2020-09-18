@@ -12,13 +12,19 @@ public class ScreenShot : MonoBehaviour
     public Camera camera;
     public GameObject target;
 
+    [SerializeField]
+    bool showBounds = true;
+
     int offsetGrade = 30;
     int maxGrade = 350;
 
     private BoundingBoxWriter writer;
 
     [SerializeField]
-    private Renderer meshTarget;
+    private Renderer meshRenderer;
+
+    // [SerializeField]
+    // private Material mat;
 
     public static string ScreenShotName(int width, int height)
     {
@@ -37,6 +43,28 @@ public class ScreenShot : MonoBehaviour
         takeHiResShot = true;
     }
 
+
+    // void OnPostRender()
+    // {
+    //     if (!mat)
+    //     {
+    //         Debug.LogError("Please Assign a material on the inspector");
+    //         return;
+    //     }
+    //      GL.PushMatrix();
+    //     mat.SetPass(0);
+    //     GL.LoadPixelMatrix();
+    //     GL.Color(Color.red);
+
+    //     GL.Begin(GL.TRIANGLES);
+    //     GL.Vertex3(0, 0, 0);
+    //     GL.Vertex3(0, Screen.height / 2, 0);
+    //     GL.Vertex3(Screen.width / 2, Screen.height / 2, 0);
+    //     GL.End();
+
+    //     GL.PopMatrix();
+    // }
+
     /// <summary>
     /// Start is called on the frame when a script is enabled just before
     /// any of the Update methods is called the first time.
@@ -51,7 +79,30 @@ public class ScreenShot : MonoBehaviour
     void LateUpdate()
     {
         camera.transform.LookAt(target.transform.position);
+        // BoundsToScreenRect();
+        
 
+    }
+
+
+    public Rect? BoundsToScreenRect()
+    {
+
+    if(!showBounds) return null;
+     // Get mesh origin and farthest extent (this works best with simple convex meshes)
+     Vector3 origin = Camera.main.WorldToScreenPoint(new Vector3(meshRenderer.bounds.min.x, meshRenderer.bounds.max.y, 0f));
+     Vector3 extent = Camera.main.WorldToScreenPoint(new Vector3(meshRenderer.bounds.max.x, meshRenderer.bounds.min.y, 0f));
+     
+     // Create rect in screen space and return - does not account for camera perspective
+     return new Rect(origin.x, Screen.height - origin.y, extent.x - origin.x, origin.y - extent.y);
+    }
+    private void OnDrawGizmos()
+    {
+        if (!showBounds) return;
+
+        Gizmos.DrawWireCube(meshRenderer.bounds.center, meshRenderer.bounds.size);
+        Gizmos.color = Color.red;
+        // Gizmos.DrawWireSphere(mesh_renderer.bounds.center, 0.3f);
     }
 
     public IEnumerator RotateAroundIt()
@@ -60,24 +111,28 @@ public class ScreenShot : MonoBehaviour
         {
             for (int j = 0; j < maxGrade; j += offsetGrade)
             {
+                int t = 0;
                 for (int k = 0; k < maxGrade; k += offsetGrade)
                 {
                     yield return Shoot(new Vector3(i, j, k));
                 }
             }
         }
+
+        writer.WriteToJson();
+
         Debug.Log("Done");
     }
 
     IEnumerator Shoot(Vector3 rotation)
     {
         target.transform.rotation = Quaternion.Euler(rotation.x, rotation.y, rotation.z);
-        RenderTexture rt = new RenderTexture(resWidth, resHeight, 24);
+        RenderTexture rt = new RenderTexture(camera.pixelWidth, camera.pixelHeight, 24);
         camera.targetTexture = rt;
-        Texture2D screenShot = new Texture2D(resWidth, resHeight, TextureFormat.RGB24, false);
+        Texture2D screenShot = new Texture2D(camera.pixelWidth, camera.pixelHeight, TextureFormat.RGB24, false);
         camera.Render();
         RenderTexture.active = rt;
-        screenShot.ReadPixels(new Rect(0, 0, resWidth, resHeight), 0, 0);
+        screenShot.ReadPixels(new Rect(0, 0, camera.pixelWidth, camera.pixelHeight), 0, 0);
         camera.targetTexture = null;
         RenderTexture.active = null;
         DestroyImmediate(rt);
@@ -85,7 +140,8 @@ public class ScreenShot : MonoBehaviour
         string filename = ScreenShotName(resWidth, resHeight);
         System.IO.File.WriteAllBytes(filename, bytes);
         Debug.Log(string.Format("Took screenshot to: {0}", filename));
-        writer.AddBoundingBox(filename, meshTarget.bounds.min, meshTarget.bounds.max);
+        var filenameSection = filename.Split('/');
+        writer.AddBoundingBox(filenameSection[filenameSection.Length - 1], meshRenderer.bounds.min, meshRenderer.bounds.max);
         takeHiResShot = false;
         DestroyImmediate(screenShot);
         yield return new WaitForSeconds(0.2f);

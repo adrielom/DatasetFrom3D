@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-[Serializable]
+[System.Serializable]
 public class BoundingBoxWriter{
-    List<AABB> boxes = new List<AABB>();
+    public List<AABB> boxes = new List<AABB>();
     private Camera camera;
 
     public BoundingBoxWriter(Camera camera){
@@ -13,8 +13,12 @@ public class BoundingBoxWriter{
     }
 
     public void AddBoundingBox(string nameFile, Vector3 minPos, Vector3 maxPos){
-        Vector3 minPosConverted = camera.WorldToScreenPoint(minPos);
-        Vector3 maxPosConverted = camera.WorldToScreenPoint(maxPos);
+        Vector3 minPosConverted = camera.WorldToScreenPoint(new Vector3(minPos.x, minPos.y, minPos.z));
+        // minPosConverted.x -= camera.pixelRect.x;
+        // minPosConverted.y -= camera.pixelRect.y;
+        Vector3 maxPosConverted = camera.WorldToScreenPoint(new Vector3(maxPos.x, maxPos.y, maxPos.z));
+        // maxPosConverted.x -= camera.pixelRect.x;
+        // maxPosConverted.y -= camera.pixelRect.y;
         AddImage(nameFile, minPosConverted, maxPosConverted);
     }
     private void AddImage(string nameFile, Vector3 minPos, Vector3 maxPos){
@@ -24,14 +28,21 @@ public class BoundingBoxWriter{
         boxes.Add(new AABB(nameFile, minPos, maxPos));
     }
 
+
+    public void WriteToJson(){
+        string output = JsonUtility.ToJson(this);
+        System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/" + "descriptor.json", output);
+    }
     
 }
 
 
+[System.Serializable]
 public class AABB{
-    private Vector3 minPos;
-    private Vector3 maxPos;
-    private string nameFile;
+
+    public Vector3 minPos;
+    public Vector3 maxPos;
+    public string nameFile;
 
     public AABB(string nameFile, Vector3 minPos, Vector3 maxPos){
         this.minPos = minPos;

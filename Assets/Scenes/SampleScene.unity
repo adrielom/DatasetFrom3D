@@ -127,6 +127,19 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 2128547014}
   m_PrefabAsset: {fileID: 0}
+--- !u!65 &602020436
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 602020435}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Size: {x: 204.1, y: 205.965, z: 15.45}
+  m_Center: {x: 101.1, y: 3.8963175, z: -0}
 --- !u!1 &1353731049
 GameObject:
   m_ObjectHideFlags: 0
@@ -160,7 +173,8 @@ MonoBehaviour:
   resHeight: 1080
   camera: {fileID: 1687258584}
   target: {fileID: 602020435}
-  meshTarget: {fileID: 1992001591}
+  showBounds: 1
+  meshRenderer: {fileID: 1992001591}
 --- !u!4 &1353731051
 Transform:
   m_ObjectHideFlags: 0
@@ -373,7 +387,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 400022, guid: 6319d8eaa51e66445a954083364891fa, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 10
+      value: 14.1
       objectReference: {fileID: 0}
     - target: {fileID: 400022, guid: 6319d8eaa51e66445a954083364891fa, type: 3}
       propertyPath: m_LocalRotation.x
