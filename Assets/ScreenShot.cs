@@ -25,7 +25,6 @@ namespace ImageProcessing {
         private BoundingBoxWriter writer;
         private Background background;
 
-        [SerializeField]
         private Renderer meshRenderer;
 
         // [SerializeField]
@@ -77,6 +76,7 @@ namespace ImageProcessing {
         void Start()
         {
             background = new Background(image);
+            meshRenderer = target.GetComponent<MeshRenderer>();
             StartCoroutine(background.GetTexture());
             writer = new BoundingBoxWriter(camera);
             StartCoroutine(RotateAroundIt());
@@ -112,15 +112,19 @@ namespace ImageProcessing {
         {
             if (!showBounds) return;
 
-            Gizmos.DrawWireCube(meshRenderer.bounds.center, meshRenderer.bounds.size);
+            if (meshRenderer != null)
+                Gizmos.DrawWireCube(meshRenderer.bounds.center, meshRenderer.bounds.size);
             Gizmos.color = Color.red;
-            // Gizmos.DrawWireSphere(mesh_renderer.bounds.center, 0.3f);
+        }
+
+        public void ResetCamerasTransform () {
+            //* Reposition it 
         }
 
         public IEnumerator RotateAroundIt()
         {
             yield return new WaitUntil(() => background.sprite != null);
-            
+
             for (int i = 0; i < maxGrade; i += offsetGrade)
             {
                 for (int j = 0; j < maxGrade; j += offsetGrade)
@@ -137,6 +141,9 @@ namespace ImageProcessing {
 
             Debug.Log("Done");
         }
+
+        
+
 
         IEnumerator Shoot(Vector3 rotation)
         {
