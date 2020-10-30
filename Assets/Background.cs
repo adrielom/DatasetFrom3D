@@ -20,7 +20,7 @@ namespace ImageProcessing {
 
     public class Background {
         
-        public const string IMAGE_URL = "https://source.unsplash.com/1600x900/?interiors,home,inside";
+        public const string IMAGE_URL = "https://source.unsplash.com/1024x728/?interiors,home,inside";
         public Sprite sprite;
         public Image image;
 
@@ -34,7 +34,7 @@ namespace ImageProcessing {
             yield return www.SendWebRequest();
 
             if(www.isNetworkError || www.isHttpError) {
-                Debug.Log(www.error);
+                
             }
             else {
                 Texture2D texture = ((DownloadHandlerTexture)www.downloadHandler).texture.ToTexture2D();

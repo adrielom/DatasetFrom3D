@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityRandom = UnityEngine.Random;
 
 namespace ImageProcessing {
         
@@ -13,19 +14,24 @@ namespace ImageProcessing {
 
         private bool takeHiResShot = false;
         public Camera camera;
+        public Light light;
         public Image image;
         public GameObject target;
         
         [SerializeField]
         bool showBounds = true;
-
         int offsetGrade = 30;
         int maxGrade = 350;
-        private float timeChanger = 5;
+        private float timeChanger;
+        public float initialTimeChanger = 2;
         private BoundingBoxWriter writer;
         private Background background;
 
         private Renderer meshRenderer;
+        [Range(1, 350)]
+        public int cameraRadius;
+        [Range(0, 360)]
+        public int cameraAngle;
 
         // [SerializeField]
         // private Material mat;
@@ -75,12 +81,17 @@ namespace ImageProcessing {
         /// </summary>
         void Start()
         {
+            timeChanger = initialTimeChanger;
             background = new Background(image);
             meshRenderer = target.GetComponent<MeshRenderer>();
-            StartCoroutine(background.GetTexture());
+            try {
+                StartCoroutine(background.GetTexture());
+            } catch (Exception e) {
+                Debug.Log(e);
+            }
             writer = new BoundingBoxWriter(camera);
-            StartCoroutine(RotateAroundIt());
-
+            // StartCoroutine(RotateAroundIt());
+            RepositionCameraTransform();
         }
 
         void LateUpdate()
@@ -89,8 +100,10 @@ namespace ImageProcessing {
             // BoundsToScreenRect();
             timeChanger -= Time.deltaTime;
             if (timeChanger <= 0) {
-                timeChanger = 5;
-                StartCoroutine(background.GetTexture());
+                timeChanger = initialTimeChanger;
+                // StartCoroutine(background.GetTexture());
+                StartCoroutine(RepositionCameraTransform());
+                UpdateLightConfig();
             }
 
         }
@@ -117,8 +130,24 @@ namespace ImageProcessing {
             Gizmos.color = Color.red;
         }
 
-        public void ResetCamerasTransform () {
-            //* Reposition it 
+        IEnumerator RepositionCameraTransform () {
+            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1, 2);
+            Vector3 randomVector = GetRandomVector();
+            var a = inictialPoint - randomVector * UnityRandom.Range(1f, 5f) + Vector3.up * 25;
+            camera.transform.position = a;
+            yield return background.GetTexture();
+            yield return Shoot();
+        }
+
+        public void UpdateLightConfig () {
+            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1, 5);
+            light.transform.position = inictialPoint - GetRandomVector();
+            light.intensity = UnityRandom.Range(0f, 5f);
+            light.shadowStrength = UnityRandom.Range(0f, 1f);
+        }
+
+        Vector3 GetRandomVector () {
+            return new Vector3(UnityRandom.Range((float) -cameraRadius, (float) cameraRadius), UnityRandom.Range(0, (float) cameraRadius), UnityRandom.Range((float)-cameraRadius, (float)cameraRadius));
         }
 
         public IEnumerator RotateAroundIt()
@@ -142,12 +171,34 @@ namespace ImageProcessing {
             Debug.Log("Done");
         }
 
-        
+
 
 
         IEnumerator Shoot(Vector3 rotation)
         {
             target.transform.rotation = Quaternion.Euler(rotation.x, rotation.y, rotation.z);
+            RenderTexture rt = new RenderTexture(camera.pixelWidth, camera.pixelHeight, 24);
+            camera.targetTexture = rt;
+            Texture2D screenShot = new Texture2D(camera.pixelWidth, camera.pixelHeight, TextureFormat.RGB24, false);
+            camera.Render();
+            RenderTexture.active = rt;
+            screenShot.ReadPixels(new Rect(0, 0, camera.pixelWidth, camera.pixelHeight), 0, 0);
+            camera.targetTexture = null;
+            RenderTexture.active = null;
+            DestroyImmediate(rt);
+            byte[] bytes = screenShot.EncodeToPNG();
+            string filename = ScreenShotName(resWidth, resHeight);
+            System.IO.File.WriteAllBytes(filename, bytes);
+            Debug.Log(string.Format("Took screenshot to: {0}", filename));
+            var filenameSection = filename.Split('/');
+            writer.AddBoundingBox(filenameSection[filenameSection.Length - 1], meshRenderer.bounds.min, meshRenderer.bounds.max);
+            takeHiResShot = false;
+            DestroyImmediate(screenShot);
+            yield return new WaitForSeconds(0.2f);
+        }
+
+        IEnumerator Shoot()
+        {
             RenderTexture rt = new RenderTexture(camera.pixelWidth, camera.pixelHeight, 24);
             camera.targetTexture = rt;
             Texture2D screenShot = new Texture2D(camera.pixelWidth, camera.pixelHeight, TextureFormat.RGB24, false);
