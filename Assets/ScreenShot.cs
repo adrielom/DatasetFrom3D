@@ -131,7 +131,7 @@ namespace ImageProcessing {
         }
 
         IEnumerator RepositionCameraTransform () {
-            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1, 2);
+            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1f, 2f) * Mathf.PerlinNoise(1f,2f);
             Vector3 randomVector = GetRandomVector();
             var a = inictialPoint - randomVector * UnityRandom.Range(1f, 5f) + Vector3.up * 25;
             camera.transform.position = a;
