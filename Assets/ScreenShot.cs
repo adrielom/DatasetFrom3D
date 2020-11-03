@@ -2,6 +2,8 @@
 using System.Collections;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 using UnityRandom = UnityEngine.Random;
 
@@ -33,6 +35,7 @@ namespace ImageProcessing {
         [Range(0, 360)]
         public int cameraAngle;
 
+        FilmGrain filmGrain;
         // [SerializeField]
         // private Material mat;
 
@@ -84,6 +87,7 @@ namespace ImageProcessing {
             timeChanger = initialTimeChanger;
             background = new Background(image);
             meshRenderer = target.GetComponent<MeshRenderer>();
+            GameObject.Find("Grain").GetComponent<Volume>().profile.TryGet<FilmGrain>(out filmGrain);
             try {
                 StartCoroutine(background.GetTexture());
             } catch (Exception e) {
@@ -104,6 +108,7 @@ namespace ImageProcessing {
                 // StartCoroutine(background.GetTexture());
                 StartCoroutine(RepositionCameraTransform());
                 UpdateLightConfig();
+                UpdateVolumeConfig();
             }
 
         }
@@ -137,6 +142,12 @@ namespace ImageProcessing {
             camera.transform.position = a;
             yield return background.GetTexture();
             yield return Shoot();
+        }
+
+        public void UpdateVolumeConfig () {
+            filmGrain.intensity.Override(UnityRandom.Range(0f, 1f));
+            filmGrain.response.Override(UnityRandom.Range(0f, 1f));
+            // volume.GetComponent<FilmGrain>().type.Override(UnityRandom.Range(0, 10));
         }
 
         public void UpdateLightConfig () {
@@ -185,6 +196,7 @@ namespace ImageProcessing {
             screenShot.ReadPixels(new Rect(0, 0, camera.pixelWidth, camera.pixelHeight), 0, 0);
             camera.targetTexture = null;
             RenderTexture.active = null;
+            
             DestroyImmediate(rt);
             byte[] bytes = screenShot.EncodeToPNG();
             string filename = ScreenShotName(resWidth, resHeight);
