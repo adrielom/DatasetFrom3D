@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
@@ -113,19 +113,6 @@ namespace ImageProcessing {
 
         }
 
-
-        public Rect? BoundsToScreenRect()
-        {
-
-            if(!showBounds) return null;
-            // Get mesh origin and farthest extent (this works best with simple convex meshes)
-            Vector3 origin = Camera.main.WorldToScreenPoint(new Vector3(meshRenderer.bounds.min.x, meshRenderer.bounds.max.y, 0f));
-            Vector3 extent = Camera.main.WorldToScreenPoint(new Vector3(meshRenderer.bounds.max.x, meshRenderer.bounds.min.y, 0f));
-            
-            // Create rect in screen space and return - does not account for camera perspective
-            return new Rect(origin.x, Screen.height - origin.y, extent.x - origin.x, origin.y - extent.y);
-        }
-        
         private void OnDrawGizmos()
         {
             if (!showBounds) return;
