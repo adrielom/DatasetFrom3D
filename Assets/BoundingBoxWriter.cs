@@ -22,23 +22,16 @@ public class BoundingBoxWriter{
         AddImage(nameFile, minPosConverted, maxPosConverted);
     }
 
-    public void AddBoundingBox (Vector3 minPos, Vector3 maxPos) {
-        Vector3 minPosConverted = camera.WorldToScreenPoint(new Vector3(minPos.x, minPos.y, minPos.z));
-        Vector3 maxPosConverted = camera.WorldToScreenPoint(new Vector3(maxPos.x, maxPos.y, maxPos.z));
-        AddImage(minPosConverted, maxPosConverted);
+    public void AddBoundingBox(string nameFile, Rect points){
+        Vector2 minPos = points.min;
+        Vector2 maxPos = points.max;
+        AddImage(nameFile, minPos, maxPos);
     }
-
-    private void AddImage(string nameFile, Vector3 minPos, Vector3 maxPos){
+    private void AddImage(string nameFile, Vector2 minPos, Vector2 maxPos){
         Debug.Log("Min position is: " + minPos);
         Debug.Log("Max position is: " + maxPos);
         Debug.Log("Name of the file is: " + nameFile);
         boxes.Add(new AABB(nameFile, minPos, maxPos));
-    }
-
-    private void AddImage (Vector3 minPos, Vector3 maxPos) {
-        Debug.Log("Min position is: " + minPos);
-        Debug.Log("Max position is: " + maxPos);
-        boxes.Add(new AABB(minPos, maxPos));
     }
 
 
@@ -53,15 +46,9 @@ public class BoundingBoxWriter{
 [System.Serializable]
 public class AABB{
 
-    public Vector3 minPos;
-    public Vector3 maxPos;
+    public Vector2 minPos;
+    public Vector2 maxPos;
     public string nameFile;
-
-    public AABB(Vector3 minPos, Vector3 maxPos)
-    {
-        this.minPos = minPos;
-        this.maxPos = maxPos;
-    }
 
     public AABB(string nameFile, Vector3 minPos, Vector3 maxPos){
         this.minPos = minPos;
