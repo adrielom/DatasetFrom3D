@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -29,11 +30,25 @@ namespace ImageProcessing {
         private BoundingBoxWriter writer;
         private Background background;
 
-        private Renderer meshRenderer;
+        private SkinnedMeshRenderer meshRendererSolo;
+
+        [SerializeField]
+        private List<SkinnedMeshRenderer> meshRenders = new List<SkinnedMeshRenderer>();
+
         [Range(1, 350)]
         public int cameraRadius;
         [Range(0, 360)]
         public int cameraAngle;
+
+        private Rect currentRect = new Rect(0, 0, 0, 0);
+
+        private Texture2D texture;
+
+        private GUIStyle borderStyle;
+
+        [Range(100,300)]
+        [SerializeField]
+        private int NUMBER_OF_PHOTOS = 100;
 
         FilmGrain filmGrain;
         // [SerializeField]
@@ -86,7 +101,7 @@ namespace ImageProcessing {
         {
             timeChanger = initialTimeChanger;
             background = new Background(image);
-            meshRenderer = target.GetComponent<MeshRenderer>();
+            meshRendererSolo = target.GetComponentInChildren<SkinnedMeshRenderer>();
             GameObject.Find("Grain").GetComponent<Volume>().profile.TryGet<FilmGrain>(out filmGrain);
             try {
                 StartCoroutine(background.GetTexture());
@@ -94,54 +109,120 @@ namespace ImageProcessing {
                 Debug.Log(e);
             }
             writer = new BoundingBoxWriter(camera);
+            texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, new Color(0, 0, 1, 0.5f));
+            texture.Apply();
+
+            borderStyle = new GUIStyle();
+            borderStyle.border = new RectOffset(2, 2, 2, 2);
+            StartCoroutine(RoutineOfPhotos());
+
             // StartCoroutine(RotateAroundIt());
-            RepositionCameraTransform();
+            //RepositionCameraTransform();
         }
 
-        void LateUpdate()
+        private void Update()
         {
-            camera.transform.LookAt(target.transform.position);
-            // BoundsToScreenRect();
-            timeChanger -= Time.deltaTime;
-            if (timeChanger <= 0) {
-                timeChanger = initialTimeChanger;
-                // StartCoroutine(background.GetTexture());
-                StartCoroutine(RepositionCameraTransform());
+            
+        }
+
+        //void LateUpdate()
+        //{
+        //    camera.transform.LookAt(target.transform.position);
+        //    // BoundsToScreenRect();
+        //    timeChanger -= Time.deltaTime;
+        //    if (timeChanger <= 0) {
+        //        timeChanger = initialTimeChanger;
+        //        // StartCoroutine(background.GetTexture());
+        //        StartCoroutine(RepositionCameraTransform());
+        //        UpdateLightConfig();
+        //        UpdateVolumeConfig();
+        //    }
+
+        //}
+
+
+        void OnGUI()
+        {
+
+            GUI.skin.box.normal.background = texture;
+            GUI.Box(currentRect, GUIContent.none);
+        }
+
+        public IEnumerator RoutineOfPhotos()
+        {
+            for(int i = 0; i< NUMBER_OF_PHOTOS; i++)
+            {
+                yield return RepositionCameraTransform();
                 UpdateLightConfig();
                 UpdateVolumeConfig();
+                yield return new WaitForSeconds(0.2f);
+            }
+        }
+
+
+        public Rect BoundsToScreenRect()
+        {
+            float x1 = float.MaxValue, y1 = float.MaxValue, x2 = 0.0f, y2 = 0.0f;
+
+            foreach(SkinnedMeshRenderer meshRenderer in meshRenders)
+            {
+                Vector3[] vertices = meshRenderer.sharedMesh.vertices;
+                Debug.Log("Mesh: " + meshRenderer.name);
+                foreach (Vector3 vert in vertices)
+                {
+                    Vector2 tmp = WorldToGUIPoint(meshRenderer.transform.TransformPoint(vert));
+
+                    if (tmp.x < x1) x1 = tmp.x;
+                    if (tmp.x > x2) x2 = tmp.x;
+                    if (tmp.y < y1) y1 = tmp.y;
+                    if (tmp.y > y2) y2 = tmp.y;
+                }
             }
 
+
+            if (meshRenders.Count > 0)
+            {
+                
+
+                Rect bbox = new Rect(x1, y1, x2 - x1, y2 - y1);
+                Debug.Log(bbox);
+                currentRect = bbox;
+                return bbox;
+            }
+            else
+            {
+                return new Rect(0, 0, 0, 0);
+            }
         }
 
-
-        public Rect? BoundsToScreenRect()
+        public static Vector2 WorldToGUIPoint(Vector3 world)
         {
-
-            if(!showBounds) return null;
-            // Get mesh origin and farthest extent (this works best with simple convex meshes)
-            Vector3 origin = Camera.main.WorldToScreenPoint(new Vector3(meshRenderer.bounds.min.x, meshRenderer.bounds.max.y, 0f));
-            Vector3 extent = Camera.main.WorldToScreenPoint(new Vector3(meshRenderer.bounds.max.x, meshRenderer.bounds.min.y, 0f));
-            
-            // Create rect in screen space and return - does not account for camera perspective
-            return new Rect(origin.x, Screen.height - origin.y, extent.x - origin.x, origin.y - extent.y);
+            Vector2 screenPoint = Camera.main.WorldToScreenPoint(world);
+            screenPoint.y = (float)Screen.height - screenPoint.y;
+            return screenPoint;
         }
-        
+
         private void OnDrawGizmos()
         {
             if (!showBounds) return;
 
-            if (meshRenderer != null)
-                Gizmos.DrawWireCube(meshRenderer.bounds.center, meshRenderer.bounds.size);
+            if (meshRendererSolo != null)
+                Gizmos.DrawWireCube(meshRendererSolo.bounds.center, meshRendererSolo.bounds.size);
             Gizmos.color = Color.red;
         }
 
         IEnumerator RepositionCameraTransform () {
-            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1f, 2f) * Mathf.PerlinNoise(1f,2f);
+            yield return background.GetTexture();
+            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1f, 2f) * Mathf.PerlinNoise(1f, 2f);
             Vector3 randomVector = GetRandomVector();
             var a = inictialPoint - randomVector * UnityRandom.Range(1f, 5f) + Vector3.up * 25;
             camera.transform.position = a;
-            yield return background.GetTexture();
+            camera.transform.LookAt(target.transform.position);
             yield return Shoot();
+           
+            
+
         }
 
         public void UpdateVolumeConfig () {
@@ -203,7 +284,7 @@ namespace ImageProcessing {
             System.IO.File.WriteAllBytes(filename, bytes);
             Debug.Log(string.Format("Took screenshot to: {0}", filename));
             var filenameSection = filename.Split('/');
-            writer.AddBoundingBox(filenameSection[filenameSection.Length - 1], meshRenderer.bounds.min, meshRenderer.bounds.max);
+            writer.AddBoundingBox(filenameSection[filenameSection.Length - 1], meshRendererSolo.bounds.min, meshRendererSolo.bounds.max);
             takeHiResShot = false;
             DestroyImmediate(screenShot);
             yield return new WaitForSeconds(0.2f);
@@ -225,10 +306,10 @@ namespace ImageProcessing {
             System.IO.File.WriteAllBytes(filename, bytes);
             Debug.Log(string.Format("Took screenshot to: {0}", filename));
             var filenameSection = filename.Split('/');
-            writer.AddBoundingBox(filenameSection[filenameSection.Length - 1], meshRenderer.bounds.min, meshRenderer.bounds.max);
+            writer.AddBoundingBox(filenameSection[filenameSection.Length - 1], BoundsToScreenRect());
             takeHiResShot = false;
             DestroyImmediate(screenShot);
-            yield return new WaitForSeconds(0.2f);
+            yield return null;
         }
 
         // IEnumerator ShootByScreenshot(Vector3 rotation){

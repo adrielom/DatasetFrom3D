@@ -21,7 +21,13 @@ public class BoundingBoxWriter{
         // maxPosConverted.y -= camera.pixelRect.y;
         AddImage(nameFile, minPosConverted, maxPosConverted);
     }
-    private void AddImage(string nameFile, Vector3 minPos, Vector3 maxPos){
+
+    public void AddBoundingBox(string nameFile, Rect points){
+        Vector2 minPos = points.min;
+        Vector2 maxPos = points.max;
+        AddImage(nameFile, minPos, maxPos);
+    }
+    private void AddImage(string nameFile, Vector2 minPos, Vector2 maxPos){
         Debug.Log("Min position is: " + minPos);
         Debug.Log("Max position is: " + maxPos);
         Debug.Log("Name of the file is: " + nameFile);
@@ -40,8 +46,8 @@ public class BoundingBoxWriter{
 [System.Serializable]
 public class AABB{
 
-    public Vector3 minPos;
-    public Vector3 maxPos;
+    public Vector2 minPos;
+    public Vector2 maxPos;
     public string nameFile;
 
     public AABB(string nameFile, Vector3 minPos, Vector3 maxPos){
