@@ -158,6 +158,8 @@ namespace ImageProcessing {
                 UpdateVolumeConfig();
                 yield return new WaitForSeconds(0.2f);
             }
+
+            writer.WriteToJson();
         }
 
 
