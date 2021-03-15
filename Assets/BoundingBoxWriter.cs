@@ -38,6 +38,7 @@ public class BoundingBoxWriter{
     public void WriteToJson(){
         string output = JsonUtility.ToJson(this);
         System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/" + "descriptor.json", output);
+        boxes.Clear();
     }
     
 }
