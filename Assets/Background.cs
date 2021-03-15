@@ -23,6 +23,9 @@ namespace ImageProcessing {
         public const string IMAGE_URL = "https://source.unsplash.com/1024x728/?interiors,home,inside";
         public Sprite sprite;
         public Image image;
+        private Texture2D currentTexture;
+        private UnityWebRequest currentRequest;
+
 
         public Background(Image image)
         {
@@ -30,16 +33,18 @@ namespace ImageProcessing {
         }
 
         public IEnumerator GetTexture() {
-            UnityWebRequest www = UnityWebRequestTexture.GetTexture(IMAGE_URL);
-            yield return www.SendWebRequest();
 
-            if(www.isNetworkError || www.isHttpError) {
+            currentRequest = UnityWebRequestTexture.GetTexture(IMAGE_URL);
+            yield return currentRequest.SendWebRequest();
+            if(currentRequest.isNetworkError || currentRequest.isHttpError) {
                 
             }
             else {
-                Texture2D texture = ((DownloadHandlerTexture)www.downloadHandler).texture.ToTexture2D();
-                sprite = Sprite.Create(texture, new Rect(0.0f, 0.0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100.0f);
-                image.sprite = sprite;  
+                Texture newTexture = ((DownloadHandlerTexture)currentRequest.downloadHandler).texture;
+                currentTexture = newTexture.ToTexture2D();
+                sprite = Sprite.Create(currentTexture, new Rect(0.0f, 0.0f, currentTexture.width, currentTexture.height), new Vector2(0.5f, 0.5f), 100.0f);
+                image.sprite = sprite;
+                Object.DestroyImmediate(newTexture);
             }
         }
 
