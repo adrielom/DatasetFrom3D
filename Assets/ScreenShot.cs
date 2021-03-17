@@ -10,6 +10,12 @@ using UnityRandom = UnityEngine.Random;
 
 namespace ImageProcessing {
         
+    public enum WriteBoxesMode
+    {
+        YOLO,
+        TRADITIONAL
+    }
+
     public class ScreenShot : MonoBehaviour
     {
         public int resWidth = 2550;
@@ -40,15 +46,20 @@ namespace ImageProcessing {
         [Range(0, 360)]
         public int cameraAngle;
 
+
+        private List<Rect> currentRects = new List<Rect>();
         private Rect currentRect = new Rect(0, 0, 0, 0);
 
         private Texture2D texture;
 
         private GUIStyle borderStyle;
 
-        [Range(100,300)]
+        [Range(1,1000000)]
         [SerializeField]
-        private int NUMBER_OF_PHOTOS = 100;
+        private int NUMBER_OF_PHOTOS = 10;
+
+        [SerializeField]
+        private WriteBoxesMode mode = WriteBoxesMode.YOLO;
 
         FilmGrain filmGrain;
         // [SerializeField]
@@ -144,9 +155,12 @@ namespace ImageProcessing {
 
         void OnGUI()
         {
-
-            GUI.skin.box.normal.background = texture;
-            GUI.Box(currentRect, GUIContent.none);
+            foreach(Rect currentRect in currentRects)
+            {
+                texture.SetPixel(0, 0, UnityEngine.Random.ColorHSV(0,1,0,1,0,1,0.5f,0.5f));
+                GUI.skin.box.normal.background = texture;
+                GUI.Box(currentRect, GUIContent.none);
+            }
         }
 
         public IEnumerator RoutineOfPhotos()
@@ -157,8 +171,9 @@ namespace ImageProcessing {
                 UpdateLightConfig();
                 UpdateVolumeConfig();
                 yield return new WaitForSeconds(0.2f);
+                GC.Collect();
             }
-
+            
             writer.WriteToJson();
         }
 
@@ -188,8 +203,6 @@ namespace ImageProcessing {
                 
 
                 Rect bbox = new Rect(x1, y1, x2 - x1, y2 - y1);
-                Debug.Log(bbox);
-                currentRect = bbox;
                 return bbox;
             }
             else
@@ -197,6 +210,34 @@ namespace ImageProcessing {
                 return new Rect(0, 0, 0, 0);
             }
         }
+
+
+        public List<Rect> DetermineRects()
+        {
+            List<Rect> rects = new List<Rect>();
+            foreach (SkinnedMeshRenderer meshRenderer in meshRenders)
+            {
+                float x1 = float.MaxValue, y1 = float.MaxValue, x2 = 0.0f, y2 = 0.0f;
+                Vector3[] vertices = meshRenderer.sharedMesh.vertices;
+                Debug.Log("Mesh: " + meshRenderer.name);
+                foreach (Vector3 vert in vertices)
+                {
+                    Vector2 tmp = WorldToGUIPoint(meshRenderer.transform.TransformPoint(vert));
+
+                    if (tmp.x < x1) x1 = tmp.x;
+                    if (tmp.x > x2) x2 = tmp.x;
+                    if (tmp.y < y1) y1 = tmp.y;
+                    if (tmp.y > y2) y2 = tmp.y;
+                }
+                Rect bbox = new Rect(x1, y1, x2 - x1, y2 - y1);
+                rects.Add(bbox);
+            }
+
+            return rects;
+        }
+
+        
+        
 
         public static Vector2 WorldToGUIPoint(Vector3 world)
         {
@@ -302,16 +343,35 @@ namespace ImageProcessing {
             screenShot.ReadPixels(new Rect(0, 0, camera.pixelWidth, camera.pixelHeight), 0, 0);
             camera.targetTexture = null;
             RenderTexture.active = null;
-            DestroyImmediate(rt);
+            Destroy(rt);
             byte[] bytes = screenShot.EncodeToPNG();
             string filename = ScreenShotName(resWidth, resHeight);
             System.IO.File.WriteAllBytes(filename, bytes);
             Debug.Log(string.Format("Took screenshot to: {0}", filename));
             var filenameSection = filename.Split('/');
-            writer.AddBoundingBox(filenameSection[filenameSection.Length - 1], BoundsToScreenRect());
+            WriteBox(filenameSection[filenameSection.Length - 1]);
             takeHiResShot = false;
-            DestroyImmediate(screenShot);
+            Destroy(screenShot);
+            
             yield return null;
+        }
+
+
+        private void WriteBox(string filename)
+        {
+            currentRects.Clear();
+            switch (mode)
+            {
+                case WriteBoxesMode.TRADITIONAL:
+                    currentRects.Add(BoundsToScreenRect());
+                    writer.AddBoundingBox(filename, currentRects[0]);
+                    
+                    break;
+                case WriteBoxesMode.YOLO:
+                    currentRects.AddRange(DetermineRects());
+                    writer.WriteBoxAloneInJson(filename, currentRects);
+                    break;
+            }
         }
 
         // IEnumerator ShootByScreenshot(Vector3 rotation){
