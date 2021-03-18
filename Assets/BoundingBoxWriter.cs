@@ -49,7 +49,7 @@ public class BoundingBoxWriter {
         int index = 0;
         foreach(Rect rect in rects)
         {
-            output += $"{index} {rect.xMin}  {rect.yMin} {rect.width} {rect.height}\n";
+            output += $"{index} {rect.xMin} {rect.yMin} {rect.width} {rect.height}\n";
             index++;
         }
         System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/" + nameFileModified + "_descriptor.txt", output);
