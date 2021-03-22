@@ -13,6 +13,7 @@ namespace ImageProcessing {
     public enum WriteBoxesMode
     {
         YOLO,
+        YOLO2,
         TRADITIONAL
     }
 
@@ -369,6 +370,10 @@ namespace ImageProcessing {
                     break;
                 case WriteBoxesMode.YOLO:
                     currentRects.AddRange(DetermineRects());
+                    writer.WriteBoxAloneInJson(filename, currentRects);
+                    break;
+                case WriteBoxesMode.YOLO2:
+                    currentRects.Add(BoundsToScreenRect());
                     writer.WriteBoxAloneInJson(filename, currentRects);
                     break;
             }
