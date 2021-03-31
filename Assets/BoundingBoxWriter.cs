@@ -38,21 +38,31 @@ public class BoundingBoxWriter {
     public void WriteToJson() {
         string output = JsonUtility.ToJson(this);
         System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/" + "descriptor.json", output);
-        boxes.Clear();
     }
 
 
-    public void WriteBoxAloneInJson(string nameFile, List<Rect> rects)
+    public void WriteBoxAloneInJson(string nameFile, List<Rect> rects, int objectClass = 0)
+    {
+        string nameFileModified = nameFile.Replace(".png", "");
+        string output = "";
+        foreach(Rect rect in rects)
+        {
+            output += $"{objectClass} {rect.center.x} {rect.center.y} {rect.width} {rect.height}\n";
+        }
+        System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/" + nameFileModified + "_descriptor.txt", output);
+    }
+
+    public void WriteBoxMultipleInJson(string nameFile, List<Rect> rects, List<int> objectClasses)
     {
         string nameFileModified = nameFile.Replace(".png", "");
         string output = "";
         int index = 0;
-        foreach(Rect rect in rects)
+        foreach (Rect rect in rects)
         {
-            output += $"{index} {rect.xMin} {rect.yMin} {rect.width} {rect.height}\n";
+            output += $"{objectClasses[index]} {rect.center.x} {rect.center.y} {rect.width} {rect.height}\n";
             index++;
         }
-        System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/" + nameFileModified + "_descriptor.txt", output);
+        System.IO.File.WriteAllText(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/screenshots/" + nameFileModified + "_descriptor_multiple.txt", output);
     }
     
 }

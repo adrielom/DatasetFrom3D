@@ -9,12 +9,48 @@ using UnityEngine.UI;
 using UnityRandom = UnityEngine.Random;
 
 namespace ImageProcessing {
-        
+
     public enum WriteBoxesMode
     {
         YOLO,
         YOLO2,
-        TRADITIONAL
+        TRADITIONAL,
+        ALL
+    }
+
+    [Serializable]
+    public struct CameraConfigs
+    {
+        [SerializeField]
+        public bool rotateX;
+        [SerializeField]
+        [Range(-180,180)]
+        public float minX;
+        [SerializeField]
+        [Range(-180, 180)]
+        public float maxX;
+        [SerializeField]
+        public bool rotateY;
+        [SerializeField]
+        [Range(-180, 180)]
+        public float minY;
+        [SerializeField]
+        [Range(-180, 180)]
+        public float maxY;
+        [SerializeField]
+        public bool rotateZ;
+        [SerializeField]
+        [Range(-180, 180)]
+        public float minZ;
+        [SerializeField]
+        [Range(-180, 180)]
+        public float maxZ;
+        [Range(-1000,1000)]
+        [SerializeField]
+        public float minDistanceRange;
+        [Range(0, 1000)]
+        [SerializeField]
+        public float maxDistanceRange;
     }
 
     public class ScreenShot : MonoBehaviour
@@ -42,10 +78,13 @@ namespace ImageProcessing {
         [SerializeField]
         private List<SkinnedMeshRenderer> meshRenders = new List<SkinnedMeshRenderer>();
 
-        [Range(1, 350)]
-        public int cameraRadius;
-        [Range(0, 360)]
-        public int cameraAngle;
+        [SerializeField]
+        private List<int> objectClasses = new List<int>();
+        [SerializeField]
+        int objectClass = 0;
+
+        [SerializeField]
+        private CameraConfigs cameraConfigs; 
 
 
         private List<Rect> currentRects = new List<Rect>();
@@ -61,8 +100,30 @@ namespace ImageProcessing {
 
         [SerializeField]
         private WriteBoxesMode mode = WriteBoxesMode.YOLO;
+        [SerializeField]
+        bool withNoise = false;
+        [SerializeField]
+        [Range(0,1)]
+        float minNoise = 0f;
+        [SerializeField]
+        [Range(0,1)]
+        float maxNoise = 0.5f;
 
         FilmGrain filmGrain;
+
+
+
+        #region "ORBIT_VARIABLES"
+        float rotZAxis;
+        float rotYAxis;
+        float rotXAxis;
+        float originalRotX;
+        float originalRotY;
+        float originalRotZ;
+        float distance;
+        #endregion
+
+        bool finished = false;
         // [SerializeField]
         // private Material mat;
 
@@ -113,8 +174,10 @@ namespace ImageProcessing {
         {
             timeChanger = initialTimeChanger;
             background = new Background(image);
+            finished = false;
             meshRendererSolo = target.GetComponentInChildren<SkinnedMeshRenderer>();
             GameObject.Find("Grain").GetComponent<Volume>().profile.TryGet<FilmGrain>(out filmGrain);
+
             try {
                 StartCoroutine(background.GetTexture());
             } catch (Exception e) {
@@ -127,7 +190,17 @@ namespace ImageProcessing {
 
             borderStyle = new GUIStyle();
             borderStyle.border = new RectOffset(2, 2, 2, 2);
+
+
+            var initialPoint = camera.transform.position - target.transform.position;
+            originalRotY = camera.transform.eulerAngles.y;
+            originalRotX = camera.transform.eulerAngles.x;
+            originalRotZ = camera.transform.eulerAngles.z;
+
             StartCoroutine(RoutineOfPhotos());
+
+
+
 
             // StartCoroutine(RotateAroundIt());
             //RepositionCameraTransform();
@@ -153,6 +226,13 @@ namespace ImageProcessing {
 
         //}
 
+        private void OnDestroy()
+        {
+            if (!finished)
+            {
+                writer.WriteToJson();
+            }
+        }
 
         void OnGUI()
         {
@@ -168,14 +248,15 @@ namespace ImageProcessing {
         {
             for(int i = 0; i< NUMBER_OF_PHOTOS; i++)
             {
-                yield return RepositionCameraTransform();
                 UpdateLightConfig();
                 UpdateVolumeConfig();
+                yield return RepositionCameraTransformMode2();
                 yield return new WaitForSeconds(0.2f);
                 GC.Collect();
             }
-            
             writer.WriteToJson();
+            finished = true;
+
         }
 
 
@@ -258,20 +339,86 @@ namespace ImageProcessing {
 
         IEnumerator RepositionCameraTransform () {
             yield return background.GetTexture();
-            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1f, 2f) * Mathf.PerlinNoise(1f, 2f);
+            Vector3 inictialPoint = target.transform.position - Vector3.one * Mathf.Clamp(UnityRandom.Range(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange) * Mathf.PerlinNoise(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange), cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange);
             Vector3 randomVector = GetRandomVector();
+            print($"Initial point is: {inictialPoint}");
             var a = inictialPoint - randomVector * UnityRandom.Range(1f, 5f) + Vector3.up * 25;
-            camera.transform.position = a;
-            camera.transform.LookAt(target.transform.position);
-            yield return Shoot();
-           
             
-
+        
+            camera.transform.position = a;
+            //camera.transform.LookAt(target.transform.position, Vector3.up);
+            yield return Shoot();
         }
 
+        IEnumerator RepositionCameraTransformMode2()
+        {
+            yield return background.GetTexture();
+            //Vector3 inictialPoint = target.transform.position - camera.transform.TransformDirection(0, 0, Mathf.Clamp(UnityRandom.Range(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange) * Mathf.PerlinNoise(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange), cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange));
+            //camera.transform.RotateAround(target.transform.position, Vector3.right, 5);
+            //camera.transform.LookAt(target.transform);
+            Orbit();
+            yield return Shoot();
+        }
+
+
+
+
+        public void Orbit()
+        {
+            Quaternion toRotation = CalculateRotation();
+            Quaternion rotation = toRotation;
+
+            distance = UnityRandom.Range(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange);
+
+            Vector3 negDistance = new Vector3(0, 0, -distance);
+            Vector3 position = rotation * negDistance + target.transform.position;
+
+            camera.transform.rotation = rotation;
+            camera.transform.position = position;
+        }
+
+        private Quaternion CalculateRotation()
+        {
+            if (cameraConfigs.rotateX)
+            {
+                rotXAxis = ClampAngle(UnityRandom.Range(cameraConfigs.minX, cameraConfigs.maxX) + originalRotX, cameraConfigs.minX, cameraConfigs.maxX);
+               
+            }
+            if (cameraConfigs.rotateY)
+            {
+                rotYAxis = ClampAngle(UnityRandom.Range(cameraConfigs.minY, cameraConfigs.maxY) + originalRotY, cameraConfigs.minY, cameraConfigs.maxY);
+            }
+            if (cameraConfigs.rotateZ)
+            {
+                rotZAxis = ClampAngle(UnityRandom.Range(cameraConfigs.minZ, cameraConfigs.maxZ) + originalRotZ, cameraConfigs.minZ, cameraConfigs.maxZ);
+            }
+            return Quaternion.Euler(cameraConfigs.rotateX ? rotXAxis : originalRotX, cameraConfigs.rotateY ? rotYAxis : originalRotY, cameraConfigs.rotateZ ? rotZAxis : originalRotZ);
+        }
+
+
+        public static float ClampAngle(float angle, float min, float max)
+        {
+            if (angle < -360F)
+                angle += 360F;
+            if (angle > 360F)
+                angle -= 360F;
+            return Mathf.Clamp(angle, min, max);
+        }
+
+
+
         public void UpdateVolumeConfig () {
-            filmGrain.intensity.Override(UnityRandom.Range(0f, 1f));
-            filmGrain.response.Override(UnityRandom.Range(0f, 1f));
+
+            if (withNoise)
+            {
+                filmGrain.intensity.Override(UnityRandom.Range(minNoise, maxNoise));
+                filmGrain.response.Override(UnityRandom.Range(minNoise, maxNoise));
+            }
+            else
+            {
+                filmGrain.intensity.Override(0);
+                filmGrain.response.Override(0);
+            }
             // volume.GetComponent<FilmGrain>().type.Override(UnityRandom.Range(0, 10));
         }
 
@@ -283,7 +430,9 @@ namespace ImageProcessing {
         }
 
         Vector3 GetRandomVector () {
-            return new Vector3(UnityRandom.Range((float) -cameraRadius, (float) cameraRadius), UnityRandom.Range(0, (float) cameraRadius), UnityRandom.Range((float)-cameraRadius, (float)cameraRadius));
+            return new Vector3(cameraConfigs.rotateX ? UnityRandom.Range(cameraConfigs.minX, cameraConfigs.maxX) : 0,
+                cameraConfigs.rotateY ? UnityRandom.Range(cameraConfigs.minY, cameraConfigs.maxY) : 0,
+                cameraConfigs.rotateZ ? UnityRandom.Range(cameraConfigs.minZ, cameraConfigs.maxZ) : 0);
         }
 
         public IEnumerator RotateAroundIt()
@@ -346,7 +495,7 @@ namespace ImageProcessing {
             RenderTexture.active = null;
             Destroy(rt);
             byte[] bytes = screenShot.EncodeToPNG();
-            string filename = ScreenShotName(resWidth, resHeight);
+            string filename = ScreenShotName(camera.pixelWidth, camera.pixelHeight);
             System.IO.File.WriteAllBytes(filename, bytes);
             Debug.Log(string.Format("Took screenshot to: {0}", filename));
             var filenameSection = filename.Split('/');
@@ -365,16 +514,25 @@ namespace ImageProcessing {
             {
                 case WriteBoxesMode.TRADITIONAL:
                     currentRects.Add(BoundsToScreenRect());
-                    writer.AddBoundingBox(filename, currentRects[0]);
-                    
+                    writer.AddBoundingBox(filename, currentRects[0]); 
                     break;
                 case WriteBoxesMode.YOLO:
                     currentRects.AddRange(DetermineRects());
-                    writer.WriteBoxAloneInJson(filename, currentRects);
+                    writer.WriteBoxMultipleInJson(filename, currentRects, objectClasses);
                     break;
                 case WriteBoxesMode.YOLO2:
                     currentRects.Add(BoundsToScreenRect());
-                    writer.WriteBoxAloneInJson(filename, currentRects);
+                    writer.WriteBoxAloneInJson(filename, currentRects, objectClass);
+                    break;
+                case WriteBoxesMode.ALL:
+                    currentRects.Add(BoundsToScreenRect());
+                    writer.AddBoundingBox(filename, currentRects[0]);
+                    currentRects.Clear();
+                    currentRects.AddRange(DetermineRects());
+                    writer.WriteBoxMultipleInJson(filename, currentRects, objectClasses);
+                    currentRects.Clear();
+                    currentRects.Add(BoundsToScreenRect());
+                    writer.WriteBoxAloneInJson(filename, currentRects, objectClass);
                     break;
             }
         }
