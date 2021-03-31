@@ -24,26 +24,26 @@ namespace ImageProcessing {
         [SerializeField]
         public bool rotateX;
         [SerializeField]
-        [Range(0,360)]
+        [Range(-180,180)]
         public float minX;
         [SerializeField]
-        [Range(0, 360)]
+        [Range(-180, 180)]
         public float maxX;
         [SerializeField]
         public bool rotateY;
         [SerializeField]
-        [Range(0, 360)]
+        [Range(-180, 180)]
         public float minY;
         [SerializeField]
-        [Range(0, 360)]
+        [Range(-180, 180)]
         public float maxY;
         [SerializeField]
         public bool rotateZ;
         [SerializeField]
-        [Range(0, 360)]
+        [Range(-180, 180)]
         public float minZ;
         [SerializeField]
-        [Range(0, 360)]
+        [Range(-180, 180)]
         public float maxZ;
         [Range(-1000,1000)]
         [SerializeField]
@@ -110,6 +110,20 @@ namespace ImageProcessing {
         float maxNoise = 0.5f;
 
         FilmGrain filmGrain;
+
+
+
+        #region "ORBIT_VARIABLES"
+        float rotZAxis;
+        float rotYAxis;
+        float rotXAxis;
+        float originalRotX;
+        float originalRotY;
+        float originalRotZ;
+        float distance;
+        #endregion
+
+        bool finished = false;
         // [SerializeField]
         // private Material mat;
 
@@ -160,6 +174,7 @@ namespace ImageProcessing {
         {
             timeChanger = initialTimeChanger;
             background = new Background(image);
+            finished = false;
             meshRendererSolo = target.GetComponentInChildren<SkinnedMeshRenderer>();
             GameObject.Find("Grain").GetComponent<Volume>().profile.TryGet<FilmGrain>(out filmGrain);
 
@@ -175,7 +190,17 @@ namespace ImageProcessing {
 
             borderStyle = new GUIStyle();
             borderStyle.border = new RectOffset(2, 2, 2, 2);
+
+
+            var initialPoint = camera.transform.position - target.transform.position;
+            originalRotY = camera.transform.eulerAngles.y;
+            originalRotX = camera.transform.eulerAngles.x;
+            originalRotZ = camera.transform.eulerAngles.z;
+
             StartCoroutine(RoutineOfPhotos());
+
+
+
 
             // StartCoroutine(RotateAroundIt());
             //RepositionCameraTransform();
@@ -201,6 +226,13 @@ namespace ImageProcessing {
 
         //}
 
+        private void OnDestroy()
+        {
+            if (!finished)
+            {
+                writer.WriteToJson();
+            }
+        }
 
         void OnGUI()
         {
@@ -218,11 +250,12 @@ namespace ImageProcessing {
             {
                 UpdateLightConfig();
                 UpdateVolumeConfig();
-                yield return RepositionCameraTransform3();
+                yield return RepositionCameraTransformMode2();
                 yield return new WaitForSeconds(0.2f);
                 GC.Collect();
             }
             writer.WriteToJson();
+            finished = true;
 
         }
 
@@ -321,23 +354,58 @@ namespace ImageProcessing {
         {
             yield return background.GetTexture();
             //Vector3 inictialPoint = target.transform.position - camera.transform.TransformDirection(0, 0, Mathf.Clamp(UnityRandom.Range(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange) * Mathf.PerlinNoise(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange), cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange));
-            transform.Translate(Vector3.right * Time.deltaTime);
-            camera.transform.LookAt(target.transform);
+            //camera.transform.RotateAround(target.transform.position, Vector3.right, 5);
+            //camera.transform.LookAt(target.transform);
+            Orbit();
             yield return Shoot();
         }
 
 
 
-        IEnumerator RepositionCameraTransform3()
+
+        public void Orbit()
         {
-            yield return background.GetTexture();
-            Vector3 direction = (target.transform.position - camera.transform.position).normalized;
-            Vector3 randomVector = GetRandomVector();
+            Quaternion toRotation = CalculateRotation();
+            Quaternion rotation = toRotation;
 
-            camera.transform.position = (direction * UnityRandom.Range(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange) + randomVector);
-            
-            yield return Shoot();
+            distance = UnityRandom.Range(cameraConfigs.minDistanceRange, cameraConfigs.maxDistanceRange);
+
+            Vector3 negDistance = new Vector3(0, 0, -distance);
+            Vector3 position = rotation * negDistance + target.transform.position;
+
+            camera.transform.rotation = rotation;
+            camera.transform.position = position;
         }
+
+        private Quaternion CalculateRotation()
+        {
+            if (cameraConfigs.rotateX)
+            {
+                rotXAxis = ClampAngle(UnityRandom.Range(cameraConfigs.minX, cameraConfigs.maxX) + originalRotX, cameraConfigs.minX, cameraConfigs.maxX);
+               
+            }
+            if (cameraConfigs.rotateY)
+            {
+                rotYAxis = ClampAngle(UnityRandom.Range(cameraConfigs.minY, cameraConfigs.maxY) + originalRotY, cameraConfigs.minY, cameraConfigs.maxY);
+            }
+            if (cameraConfigs.rotateZ)
+            {
+                rotZAxis = ClampAngle(UnityRandom.Range(cameraConfigs.minZ, cameraConfigs.maxZ) + originalRotZ, cameraConfigs.minZ, cameraConfigs.maxZ);
+            }
+            return Quaternion.Euler(cameraConfigs.rotateX ? rotXAxis : originalRotX, cameraConfigs.rotateY ? rotYAxis : originalRotY, cameraConfigs.rotateZ ? rotZAxis : originalRotZ);
+        }
+
+
+        public static float ClampAngle(float angle, float min, float max)
+        {
+            if (angle < -360F)
+                angle += 360F;
+            if (angle > 360F)
+                angle -= 360F;
+            return Mathf.Clamp(angle, min, max);
+        }
+
+
 
         public void UpdateVolumeConfig () {
 
@@ -427,7 +495,7 @@ namespace ImageProcessing {
             RenderTexture.active = null;
             Destroy(rt);
             byte[] bytes = screenShot.EncodeToPNG();
-            string filename = ScreenShotName(resWidth, resHeight);
+            string filename = ScreenShotName(camera.pixelWidth, camera.pixelHeight);
             System.IO.File.WriteAllBytes(filename, bytes);
             Debug.Log(string.Format("Took screenshot to: {0}", filename));
             var filenameSection = filename.Split('/');
