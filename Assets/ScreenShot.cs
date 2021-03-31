@@ -423,8 +423,8 @@ namespace ImageProcessing {
         }
 
         public void UpdateLightConfig () {
-            Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1, 5);
-            light.transform.position = inictialPoint - GetRandomVector();
+            //Vector3 inictialPoint = target.transform.position - Vector3.one * UnityRandom.Range(1, 5);
+            //light.transform.position = inictialPoint - GetRandomVector();
             light.intensity = UnityRandom.Range(0f, 5f);
             light.shadowStrength = UnityRandom.Range(0f, 1f);
         }
